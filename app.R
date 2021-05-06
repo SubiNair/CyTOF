@@ -5,7 +5,6 @@ library(gateR)
 library(ggplot2)
 library(dplyr)
 
-shiny::runGitHub('CyTOF', 'SubiNair')
 
 options(shiny.maxRequestSize=500*1024^2)
 timeoutSeconds <- 60*15 # 15'
