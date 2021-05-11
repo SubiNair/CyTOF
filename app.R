@@ -1,12 +1,17 @@
 #list of packages required
-list.of.packages <- c("flowCore", 'shiny', 'gateR', 'dplyr')
+list.of.packages <- c('shiny', 'gateR', 'dplyr')
 
 #checking missing packages from list
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 
 #install missing ones
 if(length(new.packages)) install.packages(new.packages, dependencies = TRUE)
-print(length(new.packages))
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("flowCore")
+
 
 library(flowCore)
 library(tools)
