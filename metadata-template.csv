@@ -1,0 +1,5 @@
+Filename,C1,C2,C1-Control,C2-Control
+cyto1_treated_0,treated,0,FALSE,TRUE
+cyto1_untreated_1,untreated,1,TRUE,FALSE
+cyto2_treated_0,treated,0,,
+cyto2_untreated_1,untreated,1,,
