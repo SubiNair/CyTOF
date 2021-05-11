@@ -1,3 +1,13 @@
+#list of packages required
+list.of.packages <- c("flowCore", 'shiny', 'gateR', 'dplyr')
+
+#checking missing packages from list
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+
+#install missing ones
+if(length(new.packages)) install.packages(new.packages, dependencies = TRUE)
+print(length(new.packages))
+
 library(flowCore)
 library(tools)
 library(shiny)
