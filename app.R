@@ -7,10 +7,14 @@ new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"
 #install missing ones
 if(length(new.packages)) install.packages(new.packages, dependencies = TRUE)
 
-if (!requireNamespace("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
 
-BiocManager::install("flowCore")
+## Bioconductor packages
+if(!('flowCore' %in% installed.packages())){
+    if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+  
+  BiocManager::install("flowCore")
+}
 
 
 library(flowCore)
