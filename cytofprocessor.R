@@ -57,7 +57,7 @@ selected_markers <- unlist(strsplit(markerinput, "xyz"))
 
 #Read in the files and establish a blacklist of .fcs columns we will not use
 
-filecsv <- read.csv(paste(fcspath, csvpath, sep = "/"), header = TRUE)
+filecsv <- suppressWarnings(read.csv(paste(fcspath, csvpath, sep = "/"), header = TRUE))
 metadata <- data.frame(lapply(filecsv, factor))
 fs <- read.flowSet(path = fcspath, pattern = ".fcs")
 blacklist <- c("Time", "Cell_length", "beadDist")
