@@ -98,7 +98,7 @@ ui <- fluidPage(
                textInput("name", label = h4("Name of Analysis"), placeholder = "Please label your analysis"),
                br(),
                shinyDirButton('dir', 'Select directory', 'Please select a directory to save the analysis files to', multiple = FALSE),
-               
+               textOutput('selecteddir'),
                hr(),
                
                fileInput("fcs", "Choose .fcs files",
@@ -250,16 +250,18 @@ server <- function(input, output, session) {
   #Get the name of the run and create a directory with that name
   fcsdir <- reactive({
     
-    print(dir())
     #Create the run name here
     dirname <- paste(dir(), '/', paste(input$name, format(Sys.time(), "%H%M%S_%m-%d-%y"), sep = "_"), sep='')
     
     #create a new directory
     lapply(dirname, function(x) if(!dir.exists(x)) dir.create(x))
     
-    print(dirname)
     return(dirname)
     
+  })
+  
+  observeEvent(input$dir, {
+    output$selecteddir <- fcsdir()
   })
   
   set <- reactive({
@@ -377,6 +379,7 @@ server <- function(input, output, session) {
       #Copy all the files to the newly created directory
       file.copy(from = input$fcs$datapath, paste0(path, input$fcs$name))
       file.copy(from = input$csv$datapath, paste0(path, input$csv$name))
+    
       
       ## Replace with path to the bash script
       cmd <- paste("./parameters.sh ", 
@@ -388,11 +391,28 @@ server <- function(input, output, session) {
                    input$numerator, #with respect to numerator / not
                    input$arcsinh, #true or false for arcsinh
                    input$name) #run name
-      print(cmd)
+      print(paste("Parameters", cmd, sep = ': '))
       system(cmd)
       
+      #Progress tracking
+      # withProgress(message = 'Performing gating analysis...', value = 0, {
+      #   # Number of times we'll go through the loop
+      #   n <- 2
+      #   
+      #   for (i in 1:n) {
+      #     # Each time through the loop, add another row of data. This is
+      #     # a stand-in for a long-running computation.
+      #     if(file.exists(paste(input$name, '.RDS'))) {
+      #       incProgress(1/n, detail = paste("RDS object created.", i))
+      #     }
+      #     
+      #     # Pause for 0.1 seconds to simulate a long computation.
+      #     #Sys.sleep(0.1)
+      #   }
+      # })
       
-      showNotification("Success, you may now close the window", type = "message",  duration = 10)
+      
+      #showNotification("Success, you may now close the window", type = "message",  duration = 10)
       
     }
   })

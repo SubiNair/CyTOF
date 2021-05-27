@@ -234,3 +234,4 @@ names(rds_obj)[length(rds_obj)] <- "gatingMarkers"
 
 rds_path <- paste(picture_path, rds_name, sep="/")
 saveRDS(rds_obj, rds_path)
+
