@@ -97,7 +97,7 @@ ui <- fluidPage(
              sidebarPanel(
                textInput("name", label = h4("Name of Analysis"), placeholder = "Please label your analysis"),
                br(),
-               shinyDirButton('dir', 'Select directory', 'Please select a directory to save the analysis files to', multiple = FALSE),
+               shinyDirButton('dir', 'Select directory', 'Please select a directory to save the analysis files to'),
                
                hr(),
                
