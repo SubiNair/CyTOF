@@ -1,5 +1,8 @@
+##### CyTOF App
+
+### PACKAGE INSTALLATION AND MANAGEMENT 
 #list of packages required
-list.of.packages <- c('shiny', 'gateR', 'dplyr')
+list.of.packages <- c('shiny', 'gateR', 'dplyr', 'shinyFiles')
 
 #checking missing packages from list
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
@@ -17,13 +20,20 @@ if(!('flowCore' %in% installed.packages())){
 }
 
 
+
+### ATTACHING NECESSARY PACKAGES
+
 library(flowCore)
 library(tools)
 library(shiny)
 library(gateR)
 library(ggplot2)
 library(dplyr)
+library(shinyFiles)
 
+
+
+### TIMEOUT
 
 options(shiny.maxRequestSize=500*1024^2)
 timeoutSeconds <- 60*15 # 15'
@@ -44,12 +54,21 @@ inactivity <- sprintf("function idleTimer() {
   }
   idleTimer();", timeoutSeconds*1000, timeoutSeconds, timeoutSeconds*1000)
 
+
+
+### GLOBAL VARS
+
 #Establishing a blacklist for flowcell data we will not need
 blacklist <- c("Time", "Cell_length", "beadDist")
 manual_colnames <- c("ID", "C1", "C2","Dataset")
 
+# A queue of notification IDs
+ids <- character(0)
+# A counter
+n <- 0
 
-##SERVER VS LOCAL
+### SERVER VS LOCAL
+
 if(strsplit(getwd(), split = '/')[[1]][2] == 'srv'){
   # This is the path if being run on BioServer
   maindir <- '/var/www/download/cytof/' # Needs a path if on the BioServer
@@ -59,22 +78,16 @@ if(strsplit(getwd(), split = '/')[[1]][2] == 'srv'){
 }
 
 
+
+### DATAFRAME RESTRUCTURING FUNCTION
+
 move_to_start <- function(x, to_move) {
   x[, c(to_move, setdiff(colnames(x), to_move))]
 } 
 
-#https://www.r-bloggers.com/2012/07/validating-email-adresses-in-r/
-#Check email validity
-isValidEmail <- function(x) {
-  grepl("\\<[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\>", as.character(x), ignore.case=TRUE)
-}
 
-# A queue of notification IDs
-ids <- character(0)
-# A counter
-n <- 0
+### UI
 
-# Define UI for app that draws a histogram ----
 ui <- fluidPage(
   #tags$script(inactivity),  
   tabsetPanel(  
@@ -82,7 +95,11 @@ ui <- fluidPage(
              titlePanel("CyTOF Processor"),
              # Copy the line below to make a text input box
              sidebarPanel(
-               textInput("email", label = h4("Email"), placeholder = "Enter email address"),
+               textInput("name", label = h4("Name of Analysis"), placeholder = "Please label your analysis"),
+               br(),
+               shinyDirButton('dir', 'Select directory', 'Please select a directory to save the analysis files to', multiple = FALSE),
+               
+               hr(),
                
                fileInput("fcs", "Choose .fcs files",
                          multiple = TRUE,
@@ -181,6 +198,10 @@ ui <- fluidPage(
   ) # End Tabset Panel
 )  ## End of UI
 
+
+
+### PATH DETECTION 
+
 if(strsplit(getwd(), split = "/")[[1]][2] == "srv"){
   # This is the path if being run on BioServer
   #sessionDF <- versionDF(version_df_dir = "/home/goodspeed/App_package_versions") # Needs a path if on the BioServer
@@ -206,6 +227,7 @@ server <- function(input, output, session) {
   #   stopApp() # I made this change so that the app closes instead of the window only
   # })
   
+  
   ## This is all for the metadata example and download
   data_example <- read.csv("metadata-template.csv", stringsAsFactors = FALSE)
   
@@ -220,17 +242,22 @@ server <- function(input, output, session) {
     }
   )
   
+  
   ### First tab analysis 
+  shinyDirChoose(input, 'dir', roots = c(home = '~'), session=session)
+  dir <- reactive({parseDirPath(c(home = '~'), input$dir)})
+  
+  #Get the name of the run and create a directory with that name
   fcsdir <- reactive({
     
-    dirname <- paste(maindir, paste(unlist(strsplit(input$email, "@"))[1], sample(1:100, 1), sep = "_"), sep='')
-    dirname <- as.character(dirname)
-    
-    #paste("www/download/", dirname)
+    print(dir())
+    #Create the run name here
+    dirname <- paste(dir(), '/', paste(input$name, format(Sys.time(), "%H%M%S_%m-%d-%y"), sep = "_"), sep='')
     
     #create a new directory
     lapply(dirname, function(x) if(!dir.exists(x)) dir.create(x))
     
+    print(dirname)
     return(dirname)
     
   })
@@ -301,14 +328,20 @@ server <- function(input, output, session) {
   
   observeEvent(input$script, {
     
-    if(isValidEmail(input$email) != TRUE) {
-      id <- showNotification("Invalid email address entered, please try again.",type = "error", duration = 10)
+    if(is.null(input$fcs$datapath)) {
+      id <- showNotification("Please upload .fcs files.",type = "error", duration = 10)
       ids <<- c(ids, id)
       n <<- n + 1
     }
     
-    else if(is.null(input$fcs$datapath)) {
-      id <- showNotification("Please upload .fcs files.",type = "error", duration = 10)
+    else if(is.null(input$dir)) {
+      id <- showNotification("Please select a directory.",type = "error", duration = 10)
+      ids <<- c(ids, id)
+      n <<- n + 1
+    }
+    
+    else if(is.null(input$name)) {
+      id <- showNotification("Please name your analysis.",type = "error", duration = 10)
       ids <<- c(ids, id)
       n <<- n + 1
     }
@@ -346,7 +379,15 @@ server <- function(input, output, session) {
       file.copy(from = input$csv$datapath, paste0(path, input$csv$name))
       
       ## Replace with path to the bash script
-      cmd <- paste("./parameters.sh ", input$email, input$corr_val, input$alpha, input$csv$name, fcsdir(), markerParse(), input$numerator, input$arcsinh, download_path)
+      cmd <- paste("./parameters.sh ", 
+                   fcsdir(), #newly created directory for files
+                   input$corr_val, #correlation
+                   input$alpha, #alpha
+                   input$csv$name, #name of the metadata csv file
+                   markerParse(), #selected markers with string 'xyz' to separate them
+                   input$numerator, #with respect to numerator / not
+                   input$arcsinh, #true or false for arcsinh
+                   input$name) #run name
       print(cmd)
       system(cmd)
       

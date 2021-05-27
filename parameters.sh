@@ -1,1 +1,1 @@
-Rscript ./cytofprocessor.R --args emailC=$1 corrC=$2 alphaN=$3 metadata=$4 fcsFilesC=$5 markersC=$6 numeratorL=$7 arcsinhN=$8 dpath=$9
+Rscript cytofprocessor.R --args newdir=$1 corr=$2 alpha=$3 metadata=$4 markers=$5 numerator=$6 arcsinh=$7 run=$8

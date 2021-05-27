@@ -23,56 +23,40 @@ num_c <- 1
 #testing .RDS
 #full_RDS <- readRDS("RDS_cytof/full_16_ungated.RDS")
 
-for (e in args) {
-  argname <- e[1]
-  if (! is.na(e[2])) {
-    argval <- e[2]
-    ## regular expression to delete initial \" and trailing \"
-    argval <- gsub("(^\\\"|\\\"$)", "", argval)
-  }
-  else {
-    # If arg specified without value, assume it is bool type and TRUE
-    argval <- TRUE
-  }
-  
-  assign(argname, argval)
-  cat("Assigned", argname, "=", argval, "\n")
-}
+# for (e in args) {
+#   argname <- e[1]
+#   if (! is.na(e[2])) {
+#     argval <- e[2]
+#     ## regular expression to delete initial \" and trailing \"
+#     argval <- gsub("(^\\\"|\\\"$)", "", argval)
+#   }
+#   else {
+#     # If arg specified without value, assume it is bool type and TRUE
+#     argval <- TRUE
+#   }
+#   
+#   assign(argname, argval)
+#   cat("Assigned", argname, "=", argval, "\n")
+# }
 
 
 # process all of the arguments here:
 
-email_address <- args[[2]][2]
+fcspath <- args[[2]][2]
 correlation_val <- args[[3]][2]
 alpha_val <- as.numeric(args[[4]][2])
 csvpath <- args[[5]][2] #actually just the name of the csv
-fcspath <- args[[6]][2]
-markerinput <- as.character(args[[7]][2])
-numerator_val <- args[[8]][2]
-#log_ten <- args[[9]][2]
-arcsinh_transform <- args[[9]][2]
-download_path <- args[[10]][2]
-
-
-# email_address <- "tester@email.com"
-# correlation_val <- "correlated"
-# alpha_val <- 0.001
-# csvpath <- "metadata.csv"
-# fcspath <- "tester300"
-# markerinput <- "CD45>>xyz>>Perforin>>xyz>>CD8>>xyz>>FcRe1"
-# numerator_val <- TRUE
-# log_ten <- FALSE
-# arcsinh_transform <- FALSE
-# #c1n <- "case"
-# c1n <- "treated"
-# c2n <- "1"
+markerinput <- as.character(args[[6]][2])
+numerator_val <- args[[7]][2]
+arcsinh_transform <- args[[8]][2]
+runname <- args[[9]][2]
 
 #Split up those markers that were selected based on the string we used
 selected_markers <- unlist(strsplit(markerinput, "xyz"))
-#print(selected_markers)
 
 
 #Read in the files and establish a blacklist of .fcs columns we will not use
+
 filecsv <- read.csv(paste(fcspath, csvpath, sep = "/"), header = TRUE)
 metadata <- data.frame(lapply(filecsv, factor))
 fs <- read.flowSet(path = fcspath, pattern = ".fcs")
@@ -221,7 +205,8 @@ if (length(vars_channels) %% 2 != 0 ) {
 
 #creating the path for the images to be saved - will also be used to save RDS
 #picture_path <- paste(".", fcspath, "", sep="/")
-picture_path <- paste(download_path, fcspath, '/', sep="")
+#picture_path <- paste(download_path, fcspath, '/', sep="")
+picture_path <- fcspath
 
 if('C2' %in% colnames(metadata)) {
   final_obj <- gating(dat = full_data, n_condition = num_c, vars=vars_channels, plot_gate=TRUE, save_gate = TRUE, path_gate = picture_path, alpha = alpha_val,  p_correct = correlation_val, numerator = numerator_val, c1n=c1val, c2n=c2val)
@@ -239,7 +224,7 @@ names(final_obj)[length(final_obj)] <- "markerTable"
 
 #prepare object path and save
 rds_obj <- final_obj
-rds_name <- paste(fcspath, "RDS", sep = ".")
+rds_name <- paste(runname, "RDS", sep = ".")
 
 rds_obj[[length(rds_obj) + 1]] <- rds_name
 names(rds_obj)[length(rds_obj)] <- "run"
@@ -247,9 +232,5 @@ names(rds_obj)[length(rds_obj)] <- "run"
 rds_obj[[length(rds_obj) + 1]] <- selected_markers
 names(rds_obj)[length(rds_obj)] <- "gatingMarkers"
 
-rds_path <- paste(picture_path, rds_name, sep="")
+rds_path <- paste(picture_path, rds_name, sep="/")
 saveRDS(rds_obj, rds_path)
-
-
-#zip .png and .RDS in rdspath
-# ./mailscript.sh
