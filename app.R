@@ -98,7 +98,7 @@ ui <- fluidPage(
                textInput("name", label = h4("Name of Analysis"), placeholder = "Please label your analysis"),
                br(),
                shinyDirButton('dir', 'Select directory', 'Please select a directory to save the analysis files to', multiple = FALSE),
-               textOutput('selecteddir'),
+               textOutput('dir'),
                hr(),
                
                fileInput("fcs", "Choose .fcs files",
@@ -260,9 +260,12 @@ server <- function(input, output, session) {
     
   })
   
-  observeEvent(input$dir, {
-    output$selecteddir <- fcsdir()
+  observeEvent(input$dir, { 
+    output$dir <- renderText({
+    parseDirPath(c(home = '~'), fcsdir())
+    })
   })
+  
   
   set <- reactive({
     fs <- NULL

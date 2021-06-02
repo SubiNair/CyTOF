@@ -8,7 +8,6 @@ cli <- commandArgs(trailingOnly = TRUE)
 args <- strsplit(cli, "=", fixed = TRUE)
 
 
-
 #https://stackoverflow.com/questions/28017141/select-the-last-n-columns-of-data-frame-in-r
 move_to_start <- function(x, to_move) {
   x[, c(to_move, setdiff(colnames(x), to_move))]
@@ -17,28 +16,6 @@ move_to_start <- function(x, to_move) {
 #This indicates how many conditions there are
 #by default it is set to 1 but if C2 is detected then it will be changed to 2
 num_c <- 1
-
-#print(args)
-
-#testing .RDS
-#full_RDS <- readRDS("RDS_cytof/full_16_ungated.RDS")
-
-# for (e in args) {
-#   argname <- e[1]
-#   if (! is.na(e[2])) {
-#     argval <- e[2]
-#     ## regular expression to delete initial \" and trailing \"
-#     argval <- gsub("(^\\\"|\\\"$)", "", argval)
-#   }
-#   else {
-#     # If arg specified without value, assume it is bool type and TRUE
-#     argval <- TRUE
-#   }
-#   
-#   assign(argname, argval)
-#   cat("Assigned", argname, "=", argval, "\n")
-# }
-
 
 # process all of the arguments here:
 
@@ -204,9 +181,12 @@ if (length(vars_channels) %% 2 != 0 ) {
 }
 
 #creating the path for the images to be saved - will also be used to save RDS
-#picture_path <- paste(".", fcspath, "", sep="/")
-#picture_path <- paste(download_path, fcspath, '/', sep="")
 picture_path <- fcspath
+
+#We can now remove the .fcs files in the folder since the object for gating has been created 
+g <- dir(fcspath, pattern = '.fcs')
+file.remove(file.path(fcspath, g))
+
 
 if('C2' %in% colnames(metadata)) {
   final_obj <- gating(dat = full_data, n_condition = num_c, vars=vars_channels, plot_gate=TRUE, save_gate = TRUE, path_gate = picture_path, alpha = alpha_val,  p_correct = correlation_val, numerator = numerator_val, c1n=c1val, c2n=c2val)
