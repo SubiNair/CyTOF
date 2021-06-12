@@ -31,7 +31,13 @@ library(ggplot2)
 library(dplyr)
 library(shinyFiles)
 
-
+progress_meter <- function(progress=FALSE){
+  for (i in 1:10){
+    Sys.sleep(1)
+    if(progress)
+      incProgress(1/i)
+  }
+}
 
 ### TIMEOUT
 
@@ -97,8 +103,8 @@ ui <- fluidPage(
              sidebarPanel(
                textInput("name", label = h4("Name of Analysis"), placeholder = "Please label your analysis"),
                br(),
-               shinyDirButton('dir', 'Select directory', 'Please select a directory to save the analysis files to', multiple = FALSE),
-               textOutput('dir'),
+               shinyDirButton('dir_btn', 'Select directory', 'Please select a directory to save the analysis files to', multiple = FALSE),
+               textOutput('sel_dir'),
                hr(),
                
                fileInput("fcs", "Choose .fcs files",
@@ -150,18 +156,9 @@ ui <- fluidPage(
     tabPanel("Plotting", fluid = TRUE,
              titlePanel("CyTOF Plotter"),
              sidebarPanel(
-               
-               #Talk about changing to csv instead? 
-               #textInput("text", label = h4("Email"), placeholder = "Enter email address"),
-               #hr(),
-               
-               
-               fileInput("rds", "Choose .RDS object",
+            fileInput("rds", "Choose .RDS object",
                          multiple = FALSE,
                          accept = c('.RDS')),
-               
-               # downloadButton("download_example_data", "Download example data",
-               #                class = "butt")
                
                
              ), #end of sidebar
@@ -190,6 +187,7 @@ ui <- fluidPage(
              #https://github.com/Waller-SUSAN/gateR
              mainPanel(
                h3("FAQ")
+              
              )
       
     )
@@ -244,28 +242,35 @@ server <- function(input, output, session) {
   
   
   ### First tab analysis 
-  shinyDirChoose(input, 'dir', roots = c(home = '~'), session=session)
-  dir <- reactive({parseDirPath(c(home = '~'), input$dir)})
+  shinyDirChoose(input, 'dir_btn', roots = c(home = '~'), session=session)
+  dir <- reactive({parseDirPath(c(home = '~'), input$dir_btn)})
+  
+  observe({
+    if(!is.null(dir())){
+      output$sel_dir <- renderText(dir())
+    }
+  })
+  
   
   #Get the name of the run and create a directory with that name
   fcsdir <- reactive({
     
     #Create the run name here
     dirname <- paste(dir(), '/', paste(input$name, format(Sys.time(), "%H%M%S_%m-%d-%y"), sep = "_"), sep='')
+    print(dirname)
+    
+    # if statement, dirname == strsplit(dirname, /), then lapply
+
+    lapply(dirname, function(x) if(!dir.exists(x)) dir.create(x))
+
     
     #create a new directory
-    lapply(dirname, function(x) if(!dir.exists(x)) dir.create(x))
+    
     
     return(dirname)
     
   })
-  
-  observeEvent(input$dir, { 
-    output$dir <- renderText({
-    parseDirPath(c(home = '~'), fcsdir())
-    })
-  })
-  
+
   
   set <- reactive({
     fs <- NULL
@@ -339,7 +344,7 @@ server <- function(input, output, session) {
       n <<- n + 1
     }
     
-    else if(is.null(input$dir)) {
+    else if(is.null(input$dir_btn)) {
       id <- showNotification("Please select a directory.",type = "error", duration = 10)
       ids <<- c(ids, id)
       n <<- n + 1
@@ -371,6 +376,14 @@ server <- function(input, output, session) {
     
     else{
       
+    
+     withProgress(message = 'Running... (this may take a while)',
+                     value = 0, {
+                       progress_meter(progress=TRUE)
+                     })
+
+      # with progress -> no fcs files present in directory, data has been preprocessed
+   
       if (length(ids) > 0) { 
         removeNotification(ids[1])
         ids <<- ids[-1]
@@ -382,7 +395,7 @@ server <- function(input, output, session) {
       #Copy all the files to the newly created directory
       file.copy(from = input$fcs$datapath, paste0(path, input$fcs$name))
       file.copy(from = input$csv$datapath, paste0(path, input$csv$name))
-    
+      
       
       ## Replace with path to the bash script
       cmd <- paste("./parameters.sh ", 
@@ -397,27 +410,13 @@ server <- function(input, output, session) {
       print(paste("Parameters", cmd, sep = ': '))
       system(cmd)
       
-      #Progress tracking
-      # withProgress(message = 'Performing gating analysis...', value = 0, {
-      #   # Number of times we'll go through the loop
-      #   n <- 2
-      #   
-      #   for (i in 1:n) {
-      #     # Each time through the loop, add another row of data. This is
-      #     # a stand-in for a long-running computation.
-      #     if(file.exists(paste(input$name, '.RDS'))) {
-      #       incProgress(1/n, detail = paste("RDS object created.", i))
-      #     }
-      #     
-      #     # Pause for 0.1 seconds to simulate a long computation.
-      #     #Sys.sleep(0.1)
-      #   }
-      # })
-      
-      
       #showNotification("Success, you may now close the window", type = "message",  duration = 10)
       
     }
+    
+    
+    
+      
   })
   
   
