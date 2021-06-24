@@ -58,6 +58,13 @@ metadata <- data.frame(lapply(filecsv, factor))
 fs <- read.flowSet(path = fcspath, pattern = ".fcs")
 blacklist <- c("Time", "Cell_length", "beadDist")
 
+
+if(length(metadata[,1]) != length(fs)) {
+  log_print(paste("Metadata rows", length(metadata[,1]), sep = ': '), console = FALSE, hide_notes = TRUE)
+  log_print(paste("flowFrames", length(fs), sep = ': '), console = FALSE, hide_notes = TRUE)
+  stop('Rows in metadata must correspond to number of files.')
+}
+
 #Build out a dataframe of the markers and channels so we have a reference table
 channels <- colnames(fs[[1]])
 channels <- channels[!(channels %in% blacklist)]

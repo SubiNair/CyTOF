@@ -1,17 +1,22 @@
 ### File Processing Only
 library(flowCore)
 library(tools)
-library(gateR)
-library(logr)
+
+#turn into function
+#parameters: path to fcs, blacklist (opt), metadata path
 
 ## Need metadata and will need to enter a directory name here 
-fcspath <- dirname('')
+fcspath <- dirname('/Users/subi/Documents/CytofProcessing/tester1/.')
 
 filecsv <- suppressWarnings(read.csv(paste(fcspath, 'metadata.csv', sep = "/"), header = TRUE))
 metadata <- data.frame(lapply(filecsv, factor))
 
 fs <- read.flowSet(path = fcspath, pattern = ".fcs")
 blacklist <- c("Time", "Cell_length", "beadDist")
+
+if(length(metadata$Filename) != length(fs)) {
+  stop('Rows in metadata must correspond to number of files.')
+}
 
 #Build out a dataframe of the markers and channels so we have a reference table
 channels <- colnames(fs[[1]])
@@ -61,9 +66,6 @@ for(frame in 1:length(fs)) {
   fs_frame <- as.data.frame(exprs(fs[[frame]]))
   fs_frame <- fs_frame[,-which(names(fs_frame) %in% blacklist)]
   
-  # if(log_ten == TRUE) {
-  #   fs_frame <- log(fs_frame)
-  # }
   
   #find the number of cells (rows) for the file
   fs_row <- nrow(fs_frame)

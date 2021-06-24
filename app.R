@@ -143,7 +143,7 @@ ui <- fluidPage(
                h3("Metadata"),
                p("The .csv metadata file must contain the filenames, conditions, and indicate which of those conditons should be treated as the control:"),
                tableOutput('mtable'),
-               p("The first column contains the filename without the extension. The C1 and C2 columns contain the conditions in the experiment.The C1.Control and C2.Control columns contain a boolean value specifying which of the contion values was the control in the experiment. Only a single TRUE and FALSE value is needed for each of these columns. In this example, \'untreated\' is the control, so there is a TRUE in the cell adjacent to it, and a FALSE adjacent to the \'treated\' value.", span(strong("The application currently only supports 2 conditions max.")), "If there is only a single condition, the C2 and C2.Control columns may be ommitted from the metadata file. A metadata sample is available for download below:"),
+               p("The first column contains the filename without the extension. The C1 and C2 columns contain the conditions in the experiment.The C1.Control and C2.Control columns contain a boolean value specifying which of the contion values was the control in the experiment. Only a single TRUE and FALSE value is needed for each of these columns. In this example, \'untreated\' is the control, so there is a TRUE in the cell adjacent to it, and a FALSE adjacent to the \'treated\' value.", span(strong("The application currently only supports 2 conditions max.")), "If there is only a single condition, the C2 and C2. Control columns may be ommitted from the metadata file. A metadata sample is available for download below:"),
                downloadButton("downloadData", "Download Metadata Example"),
                
                h3("Selecting Markers for Gating"),
@@ -375,14 +375,7 @@ server <- function(input, output, session) {
     }
     
     else{
-      
-    
-     withProgress(message = 'Running... (this may take a while)',
-                     value = 0, {
-                       progress_meter(progress=TRUE)
-                     })
-
-      # with progress -> no fcs files present in directory, data has been preprocessed
+     # with progress -> no fcs files present in directory, data has been preprocessed
    
       if (length(ids) > 0) { 
         removeNotification(ids[1])
@@ -396,26 +389,39 @@ server <- function(input, output, session) {
       file.copy(from = input$fcs$datapath, paste0(path, input$fcs$name))
       file.copy(from = input$csv$datapath, paste0(path, input$csv$name))
       
-      
-      ## Replace with path to the bash script
-      cmd <- paste("./parameters.sh ", 
-                   fcsdir(), #newly created directory for files
-                   input$corr_val, #correlation
-                   input$alpha, #alpha
-                   input$csv$name, #name of the metadata csv file
-                   markerParse(), #selected markers with string 'xyz' to separate them
-                   input$numerator, #with respect to numerator / not
-                   input$arcsinh, #true or false for arcsinh
-                   input$name) #run name
-      print(paste("Parameters", cmd, sep = ': '))
-      system(cmd)
+      withProgress(message = 'Running... (this may take a while)',
+                   value = 0, {
+                     
+                     ## Replace with path to the bash script
+                     cmd <- paste("./parameters.sh ", 
+                                  fcsdir(), #newly created directory for files
+                                  input$corr_val, #correlation
+                                  input$alpha, #alpha
+                                  input$csv$name, #name of the metadata csv file
+                                  markerParse(), #selected markers with string 'xyz' to separate them
+                                  input$numerator, #with respect to numerator / not
+                                  input$arcsinh, #true or false for arcsinh
+                                  input$name) #run name
+                     incProgress(0.5)
+                     system(cmd)
+                     
+                     
+                     fcsfiles <- list.files(path = path, pattern = "\\.fcs$")
+                     rdsfiles <- list.files(pattern = "\\.RDS$")
+                     
+                     if(length(fcsfiles) == 0) {
+                       incProgress(0.3, detail = "Beginning Gating")
+                     }
+                     
+                     if(length(rdsfiles) == 1) {
+                       incProgress(0.2, detail = "Gating complete")
+                     }
+                   })
       
       #showNotification("Success, you may now close the window", type = "message",  duration = 10)
       
     }
-    
-    
-    
+
       
   })
   
