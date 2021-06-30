@@ -136,7 +136,7 @@ ui <- fluidPage(
              
              mainPanel(
                h3("App Overview"),
-               h5("This application is designed to accept a user's .fcs files and transform the data into a format that the gateR package will use to perform a gating analysis. The application will return an .RDS data file with the gated results and any plots that were generated to the user via email. For a side by side comparison of density plots and RRS plots, use the plotting tab of this app. Continue reading for information on how to use this application."),
+               h5("This application is designed to accept a user's .fcs files and transform the data into a format that the gateR package will use to perform a gating analysis. The user will need to provide a name for the analysis and a directory location for the final results to be saved to. The application will create a directory at this location and will have the name specified earlier. The final directory will contain the original metadata file, the gated .RDS object, and any generated RRS plots. Use the next tab to view density plots of the markers from a completed object. Continue reading for information on how to use this application."),
                tags$a(href="https://cran.r-project.org/web/packages/gateR/gateR.pdf", target="_blank",
                       "Documentation for the gateR package is available here."),
                
