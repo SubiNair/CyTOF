@@ -5,6 +5,8 @@ library(tools)
 #turn into function
 #parameters: path to fcs, blacklist (opt), metadata path
 
+fcsprocessor <- function(metadata, fcspath) {
+
 ## Need metadata and will need to enter a directory name here 
 fcspath <- dirname('/Users/subi/Documents/CytofProcessing/tester1/.')
 
@@ -109,10 +111,6 @@ row_numbers <- seq.int((nrow(full_data)))
 full_data <- cbind(full_data, ID=row_numbers, row.names = NULL)
 full_data <- move_to_start(full_data, manual_colnames)
 
-#should be changed to the case value instead
-c1_control <- metadata$C1[which(metadata$C1.Control==TRUE)]
-c1_case <- metadata$C1[which(metadata$C1.Control==FALSE)]
-
-
+return(full_data)
 ## Does NOT include arcsin transform since that is a parameter
-
+}
