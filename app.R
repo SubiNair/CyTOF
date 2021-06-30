@@ -31,7 +31,13 @@ library(ggplot2)
 library(dplyr)
 library(shinyFiles)
 
-
+progress_meter <- function(progress=FALSE){
+  for (i in 1:10){
+    Sys.sleep(1)
+    if(progress)
+      incProgress(1/i)
+  }
+}
 
 ### TIMEOUT
 
@@ -97,8 +103,8 @@ ui <- fluidPage(
              sidebarPanel(
                textInput("name", label = h4("Name of Analysis"), placeholder = "Please label your analysis"),
                br(),
-               shinyDirButton('dir', 'Select directory', 'Please select a directory to save the analysis files to'),
-               
+               shinyDirButton('dir_btn', 'Select directory', 'Please select a directory to save the analysis files to', multiple = FALSE),
+               textOutput('sel_dir'),
                hr(),
                
                fileInput("fcs", "Choose .fcs files",
@@ -137,7 +143,7 @@ ui <- fluidPage(
                h3("Metadata"),
                p("The .csv metadata file must contain the filenames, conditions, and indicate which of those conditons should be treated as the control:"),
                tableOutput('mtable'),
-               p("The first column contains the filename without the extension. The C1 and C2 columns contain the conditions in the experiment.The C1.Control and C2.Control columns contain a boolean value specifying which of the contion values was the control in the experiment. Only a single TRUE and FALSE value is needed for each of these columns. In this example, \'untreated\' is the control, so there is a TRUE in the cell adjacent to it, and a FALSE adjacent to the \'treated\' value.", span(strong("The application currently only supports 2 conditions max.")), "If there is only a single condition, the C2 and C2.Control columns may be ommitted from the metadata file. A metadata sample is available for download below:"),
+               p("The first column contains the filename without the extension. The C1 and C2 columns contain the conditions in the experiment.The C1.Control and C2.Control columns contain a boolean value specifying which of the contion values was the control in the experiment. Only a single TRUE and FALSE value is needed for each of these columns. In this example, \'untreated\' is the control, so there is a TRUE in the cell adjacent to it, and a FALSE adjacent to the \'treated\' value.", span(strong("The application currently only supports 2 conditions max.")), "If there is only a single condition, the C2 and C2. Control columns may be ommitted from the metadata file. A metadata sample is available for download below:"),
                downloadButton("downloadData", "Download Metadata Example"),
                
                h3("Selecting Markers for Gating"),
@@ -150,18 +156,9 @@ ui <- fluidPage(
     tabPanel("Plotting", fluid = TRUE,
              titlePanel("CyTOF Plotter"),
              sidebarPanel(
-               
-               #Talk about changing to csv instead? 
-               #textInput("text", label = h4("Email"), placeholder = "Enter email address"),
-               #hr(),
-               
-               
-               fileInput("rds", "Choose .RDS object",
+            fileInput("rds", "Choose .RDS object",
                          multiple = FALSE,
                          accept = c('.RDS')),
-               
-               # downloadButton("download_example_data", "Download example data",
-               #                class = "butt")
                
                
              ), #end of sidebar
@@ -190,6 +187,7 @@ ui <- fluidPage(
              #https://github.com/Waller-SUSAN/gateR
              mainPanel(
                h3("FAQ")
+              
              )
       
     )
@@ -244,23 +242,35 @@ server <- function(input, output, session) {
   
   
   ### First tab analysis 
-  shinyDirChoose(input, 'dir', roots = c(home = '~'), session=session)
-  dir <- reactive({parseDirPath(c(home = '~'), input$dir)})
+  shinyDirChoose(input, 'dir_btn', roots = c(home = '~'), session=session)
+  dir <- reactive({parseDirPath(c(home = '~'), input$dir_btn)})
+  
+  observe({
+    if(!is.null(dir())){
+      output$sel_dir <- renderText(dir())
+    }
+  })
+  
   
   #Get the name of the run and create a directory with that name
   fcsdir <- reactive({
     
-    print(dir())
     #Create the run name here
     dirname <- paste(dir(), '/', paste(input$name, format(Sys.time(), "%H%M%S_%m-%d-%y"), sep = "_"), sep='')
+    print(dirname)
+    
+    # if statement, dirname == strsplit(dirname, /), then lapply
+
+    lapply(dirname, function(x) if(!dir.exists(x)) dir.create(x))
+
     
     #create a new directory
-    lapply(dirname, function(x) if(!dir.exists(x)) dir.create(x))
     
-    print(dirname)
+    
     return(dirname)
     
   })
+
   
   set <- reactive({
     fs <- NULL
@@ -334,7 +344,7 @@ server <- function(input, output, session) {
       n <<- n + 1
     }
     
-    else if(is.null(input$dir)) {
+    else if(is.null(input$dir_btn)) {
       id <- showNotification("Please select a directory.",type = "error", duration = 10)
       ids <<- c(ids, id)
       n <<- n + 1
@@ -365,7 +375,8 @@ server <- function(input, output, session) {
     }
     
     else{
-      
+     # with progress -> no fcs files present in directory, data has been preprocessed
+   
       if (length(ids) > 0) { 
         removeNotification(ids[1])
         ids <<- ids[-1]
@@ -378,23 +389,40 @@ server <- function(input, output, session) {
       file.copy(from = input$fcs$datapath, paste0(path, input$fcs$name))
       file.copy(from = input$csv$datapath, paste0(path, input$csv$name))
       
-      ## Replace with path to the bash script
-      cmd <- paste("./parameters.sh ", 
-                   fcsdir(), #newly created directory for files
-                   input$corr_val, #correlation
-                   input$alpha, #alpha
-                   input$csv$name, #name of the metadata csv file
-                   markerParse(), #selected markers with string 'xyz' to separate them
-                   input$numerator, #with respect to numerator / not
-                   input$arcsinh, #true or false for arcsinh
-                   input$name) #run name
-      print(cmd)
-      system(cmd)
+      withProgress(message = 'Running... (this may take a while)',
+                   value = 0, {
+                     
+                     ## Replace with path to the bash script
+                     cmd <- paste("./parameters.sh ", 
+                                  fcsdir(), #newly created directory for files
+                                  input$corr_val, #correlation
+                                  input$alpha, #alpha
+                                  input$csv$name, #name of the metadata csv file
+                                  markerParse(), #selected markers with string 'xyz' to separate them
+                                  input$numerator, #with respect to numerator / not
+                                  input$arcsinh, #true or false for arcsinh
+                                  input$name) #run name
+                     incProgress(0.5)
+                     system(cmd)
+                     
+                     
+                     fcsfiles <- list.files(path = path, pattern = "\\.fcs$")
+                     rdsfiles <- list.files(pattern = "\\.RDS$")
+                     
+                     if(length(fcsfiles) == 0) {
+                       incProgress(0.3, detail = "Beginning Gating")
+                     }
+                     
+                     if(length(rdsfiles) == 1) {
+                       incProgress(0.2, detail = "Gating complete")
+                     }
+                   })
       
-      
-      showNotification("Success, you may now close the window", type = "message",  duration = 10)
+      #showNotification("Success, you may now close the window", type = "message",  duration = 10)
       
     }
+
+      
   })
   
   

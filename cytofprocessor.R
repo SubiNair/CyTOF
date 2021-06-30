@@ -1,12 +1,17 @@
+### Processor for CyTOF Application
+#Includes gating and logging
+
 library(flowCore)
 library(tools)
 library(bestNormalize)
 library(gateR)
+library(logr)
+
+
 
 #Command parsing
 cli <- commandArgs(trailingOnly = TRUE)
 args <- strsplit(cli, "=", fixed = TRUE)
-
 
 
 #https://stackoverflow.com/questions/28017141/select-the-last-n-columns-of-data-frame-in-r
@@ -18,28 +23,6 @@ move_to_start <- function(x, to_move) {
 #by default it is set to 1 but if C2 is detected then it will be changed to 2
 num_c <- 1
 
-#print(args)
-
-#testing .RDS
-#full_RDS <- readRDS("RDS_cytof/full_16_ungated.RDS")
-
-# for (e in args) {
-#   argname <- e[1]
-#   if (! is.na(e[2])) {
-#     argval <- e[2]
-#     ## regular expression to delete initial \" and trailing \"
-#     argval <- gsub("(^\\\"|\\\"$)", "", argval)
-#   }
-#   else {
-#     # If arg specified without value, assume it is bool type and TRUE
-#     argval <- TRUE
-#   }
-#   
-#   assign(argname, argval)
-#   cat("Assigned", argname, "=", argval, "\n")
-# }
-
-
 # process all of the arguments here:
 
 fcspath <- args[[2]][2]
@@ -49,18 +32,38 @@ csvpath <- args[[5]][2] #actually just the name of the csv
 markerinput <- as.character(args[[6]][2])
 numerator_val <- args[[7]][2]
 arcsinh_transform <- args[[8]][2]
-runname <- args[[9]][2]
+runname <- args[[9]][2] #name of the run that the user selected
+
+#create the logfile
+log_name <- paste(runname, "log", sep = '.')
+lf <- log_open(file.path(fcspath, log_name))
+log_print(paste("Log file for", runname, sep = ': '), console = FALSE)
+
+log_print("Parameters", console = FALSE,  hide_notes = TRUE)
+log_print(paste('Directory', fcspath, sep = ': '), console = FALSE, hide_notes = TRUE)
+log_print(paste('Run name', runname, sep = ': '), console = FALSE, hide_notes = TRUE)
+log_print(paste('Metadata Filename', csvpath, sep = ': '), console = FALSE, hide_notes = TRUE)
+log_print(paste('Correlation', correlation_val, sep = ': '), console = FALSE, hide_notes = TRUE)
+log_print(paste('Alpha', alpha_val, sep = ': '), console = FALSE, hide_notes = TRUE)
+log_print(paste('Arcsinh Transformation', arcsinh_transform, sep = ': '), console = FALSE, hide_notes = TRUE)
+log_print(paste('Extracting cells from case clusters', numerator_val, sep = ': '), console = FALSE, hide_notes = TRUE)
 
 #Split up those markers that were selected based on the string we used
 selected_markers <- unlist(strsplit(markerinput, "xyz"))
 
 
 #Read in the files and establish a blacklist of .fcs columns we will not use
-
-filecsv <- read.csv(paste(fcspath, csvpath, sep = "/"), header = TRUE)
+filecsv <- suppressWarnings(read.csv(paste(fcspath, csvpath, sep = "/"), header = TRUE))
 metadata <- data.frame(lapply(filecsv, factor))
 fs <- read.flowSet(path = fcspath, pattern = ".fcs")
 blacklist <- c("Time", "Cell_length", "beadDist")
+
+
+if(length(metadata[,1]) != length(fs)) {
+  log_print(paste("Metadata rows", length(metadata[,1]), sep = ': '), console = FALSE, hide_notes = TRUE)
+  log_print(paste("flowFrames", length(fs), sep = ': '), console = FALSE, hide_notes = TRUE)
+  stop('Rows in metadata must correspond to number of files.')
+}
 
 #Build out a dataframe of the markers and channels so we have a reference table
 channels <- colnames(fs[[1]])
@@ -89,16 +92,16 @@ for (ch in 1:m_dim) {
   #gsub("[()]", "", x)
 }
 
+log_print('Markers for Gating', console = FALSE, hide_notes = TRUE)
 
 #extract the channel names needed for the analysis
 vars_channels <- selected_markers
 for(m in 1:length(selected_markers)) {
   vars_channels[m] <- markers[2, match(selected_markers[m], markers[1,])]
+  log_print(paste('Marker-', m, ': ' ,selected_markers[m], sep = ''), console = FALSE, hide_notes = TRUE)
 }
 
 vars_channels <- make.names(vars_channels)
-
-#vars_channels <- as.character(vars_channels)
 
 #full_data will be the data_frame for the gating function
 #manual_colnames are the columns that we will be adding
@@ -178,13 +181,14 @@ if(arcsinh_transform == TRUE) {
   
   for(col in colnames(full_data)) {
     if(!col %in% manual_colnames) {
-      print(col)
       full_data[,col] <- predict(arcsinh_x(full_data[,col]))
     }
     
   }
   
 }
+
+#single vs double log 
 
 if(numerator_val == FALSE) {
   if('C2' %in% colnames(metadata)) {
@@ -203,10 +207,18 @@ if (length(vars_channels) %% 2 != 0 ) {
   stop(length(vars_channels) %% 2)
 }
 
+# add path specify picture saving path
+
+
 #creating the path for the images to be saved - will also be used to save RDS
-#picture_path <- paste(".", fcspath, "", sep="/")
-#picture_path <- paste(download_path, fcspath, '/', sep="")
-picture_path <- fcspath
+picture_path <- paste(fcspath, "/", sep = '')
+
+#We can now remove the .fcs files in the folder since the object for gating has been created 
+g <- dir(fcspath, pattern = '.fcs')
+file.remove(file.path(fcspath, g))
+
+
+#back to app for incrementing progress
 
 if('C2' %in% colnames(metadata)) {
   final_obj <- gating(dat = full_data, n_condition = num_c, vars=vars_channels, plot_gate=TRUE, save_gate = TRUE, path_gate = picture_path, alpha = alpha_val,  p_correct = correlation_val, numerator = numerator_val, c1n=c1val, c2n=c2val)
@@ -224,6 +236,10 @@ names(final_obj)[length(final_obj)] <- "markerTable"
 
 #prepare object path and save
 rds_obj <- final_obj
+
+log_print("The following numbers indicate the number of cells after each gate.", console = FALSE,  hide_notes = TRUE)
+log_print(paste('n', rds_obj$n, sep = ': '), console = FALSE)
+
 rds_name <- paste(runname, "RDS", sep = ".")
 
 rds_obj[[length(rds_obj) + 1]] <- rds_name
@@ -234,3 +250,4 @@ names(rds_obj)[length(rds_obj)] <- "gatingMarkers"
 
 rds_path <- paste(picture_path, rds_name, sep="/")
 saveRDS(rds_obj, rds_path)
+
