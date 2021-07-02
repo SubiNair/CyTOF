@@ -2,19 +2,22 @@
 library(flowCore)
 library(tools)
 
-#turn into function
-#parameters: path to fcs, blacklist (opt), metadata path
+#path is the path to the directory containing .fcs and metadata.csv, must end with '/'
+#mdata is the name of the metadata file in the directory
+#bl is a list of column names to be excluded from the analysis
 
-fcsprocessor <- function(metadata, fcspath) {
+fcsprocessor <- function(path, mdata, bl) {
 
 ## Need metadata and will need to enter a directory name here 
-fcspath <- dirname('/Users/subi/Documents/CytofProcessing/tester1/.')
+fcspath <- path
 
-filecsv <- suppressWarnings(read.csv(paste(fcspath, 'metadata.csv', sep = "/"), header = TRUE))
+filecsv <- suppressWarnings(read.csv(paste(fcspath, mdata, sep = ""), header = TRUE))
 metadata <- data.frame(lapply(filecsv, factor))
 
 fs <- read.flowSet(path = fcspath, pattern = ".fcs")
-blacklist <- c("Time", "Cell_length", "beadDist")
+blacklist <- bl
+print(paste("Blacklist", blacklist, sep = ": "))
+
 
 if(length(metadata$Filename) != length(fs)) {
   stop('Rows in metadata must correspond to number of files.')
