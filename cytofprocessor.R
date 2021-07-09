@@ -65,6 +65,14 @@ if(length(metadata[,1]) != length(fs)) {
   stop('Rows in metadata must correspond to number of files.')
 }
 
+
+for (col in 2:length(colnames(metadata)))  {
+      if(length(unique(metadata[,col])) > 2) {
+      log_print(paste("Values", unique(metadata[,col]), sep = ': '), console = FALSE, hide_notes = TRUE)
+      stop('Conditional columns cannot have more than 2 values')
+      }
+    }
+
 #Build out a dataframe of the markers and channels so we have a reference table
 channels <- colnames(fs[[1]])
 channels <- channels[!(channels %in% blacklist)]
@@ -225,6 +233,13 @@ if('C2' %in% colnames(metadata)) {
 } else {
   final_obj <- gating(dat = full_data, n_condition = num_c, vars=vars_channels, plot_gate=TRUE, save_gate = TRUE, path_gate = picture_path, alpha = alpha_val,  p_correct = correlation_val, numerator = numerator_val, c1n=c1val)
 }
+
+if(!exists(final_obj)) {
+  stop("Gating unsuccesful, check logs")
+}
+
+log_print(final_obj$note, console = FALSE, hide_notes = TRUE)
+
 
 alt_markers <- markers
 alt_markers[2,] <- make.names(markers[2,])

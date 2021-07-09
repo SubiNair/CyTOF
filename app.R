@@ -1,5 +1,4 @@
 ##### CyTOF App
-
 ### PACKAGE INSTALLATION AND MANAGEMENT 
 #list of packages required
 list.of.packages <- c('shiny', 'gateR', 'dplyr', 'shinyFiles')
@@ -31,13 +30,6 @@ library(ggplot2)
 library(dplyr)
 library(shinyFiles)
 
-progress_meter <- function(progress=FALSE){
-  for (i in 1:10){
-    Sys.sleep(1)
-    if(progress)
-      incProgress(1/i)
-  }
-}
 
 ### TIMEOUT
 
@@ -275,12 +267,20 @@ server <- function(input, output, session) {
   set <- reactive({
     fs <- NULL
     req(input$fcs$datapath)
-    fs <- read.flowSet(files = input$fcs$datapath, pattern = ".fcs")
+    #print(input$fcs$datapath)
+    if(length(grep("\\.fcs$", input$fcs$datapath)) == 0){
+        id <- showNotification("Incorrect file type",type = "error", duration = 10)
+        ids <<- c(ids, id)
+        n <<- n + 1
+      }
     
-    #Insert catch error for mismatched files here
-    sampleNames(fs) <- input$fcs$name
-    return(fs)
-    
+   else { 
+      fs <- read.flowSet(files = input$fcs$datapath, pattern = ".fcs")
+      
+      #Insert catch error for mismatched files here
+      sampleNames(fs) <- input$fcs$name
+      return(fs)
+    }
   })
   
   channel_obj <- reactive({
@@ -291,6 +291,8 @@ server <- function(input, output, session) {
   
   #Build out a dataframe for the markers -- same as the one in the script
   marker_object <- reactive({
+    req(set())
+    print(set())
     m_dim <- length(channel_obj())
     
     markers <- as.data.frame(matrix(nrow = 2, ncol = m_dim))
@@ -404,8 +406,8 @@ server <- function(input, output, session) {
                                   input$name) #run name
                      incProgress(0.5)
                      system(cmd)
-                     
-                     
+                         
+                     invalidateLater(1000, session)
                      fcsfiles <- list.files(path = path, pattern = "\\.fcs$")
                      rdsfiles <- list.files(pattern = "\\.RDS$")
                      
@@ -415,15 +417,15 @@ server <- function(input, output, session) {
                      
                      if(length(rdsfiles) == 1) {
                        incProgress(0.2, detail = "Gating complete")
+                       showNotification("Success, you may now close the window", type = "message",  duration = 10)
                      }
-                   })
-      
-      #showNotification("Success, you may now close the window", type = "message",  duration = 10)
+                        
+                   }) ##withProgress
       
     }
 
       
-  })
+  }) ### tab 1 end
   
   
   ###### SECOND TAB
