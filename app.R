@@ -292,7 +292,6 @@ server <- function(input, output, session) {
   #Build out a dataframe for the markers -- same as the one in the script
   marker_object <- reactive({
     req(set())
-    print(set())
     m_dim <- length(channel_obj())
     
     markers <- as.data.frame(matrix(nrow = 2, ncol = m_dim))
@@ -450,9 +449,7 @@ server <- function(input, output, session) {
   
   channel_RDS <- reactive({
     req(gated_obj())
-    #input_names <- colnames(gated_obj())
-    #channel_names <- names(gated_obj()[, !names(gated_obj()) %in% manual_colnames])
-    channel_names <- gated_obj()$markerTable
+    channel_names <- gated_obj()$markertable
     
     print(channel_names)
     return(channel_names)

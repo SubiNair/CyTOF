@@ -16,11 +16,22 @@ metadata <- data.frame(lapply(filecsv, factor))
 
 fs <- read.flowSet(path = fcspath, pattern = ".fcs")
 blacklist <- bl
-print(paste("Blacklist", blacklist, sep = ": "))
 
 
 if(length(metadata$Filename) != length(fs)) {
   stop('Rows in metadata must correspond to number of files.')
+}
+
+# Current limit is 2 groups per condition
+
+if(length(unique(metadata$C1)) > 2) {
+  stop('Too many groups in condition 1')
+}
+
+if('C2' %in% colnames(metadata)) {
+  if(length(unique(metadata$C1)) > 2) {
+    stop('Too many groups in condition 2')
+  }
 }
 
 #Build out a dataframe of the markers and channels so we have a reference table
