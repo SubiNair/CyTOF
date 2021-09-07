@@ -107,10 +107,14 @@ ui <- fluidPage(
                          multiple = FALSE,
                          accept=c('text/csv', 'text/comma-separated- values,text/plain', '.csv')),
                
-               radioButtons("corr_val", "Correlation:",
-                            c("None" = "none",
-                              "Correlated" = "correlated",
-                              "Uncorrelated" = "uncorrelated")),
+               selectInput("corr_val", label = "Correction:",
+                            choices = c("None" = "none",
+                              "False Discovery Rate" = "FDR",
+                              "Correlated Sidak" = "correlated Sidak",
+                              "Uncorrelated Sidak" = "uncorrelated Sidak",
+                              "Correlated Bonferroni" = "correlated Bonferroni",
+                              "Uncorrelated Bonferroni" = "uncorrelated Bonferroni",
+                              "Adler and Hasofer" = "Adler and Hasofer")),
                
                radioButtons("alpha", "Alpha:",
                             c("0.001" = 0.001,
@@ -135,7 +139,7 @@ ui <- fluidPage(
                h3("Metadata"),
                p("The .csv metadata file must contain the filenames, conditions, and indicate which of those conditons should be treated as the control:"),
                tableOutput('mtable'),
-               p("The first column contains the filename without the extension. The C1 and C2 columns contain the conditions in the experiment.The C1.Control and C2.Control columns contain a boolean value specifying which of the contion values was the control in the experiment. Only a single TRUE and FALSE value is needed for each of these columns. In this example, \'untreated\' is the control, so there is a TRUE in the cell adjacent to it, and a FALSE adjacent to the \'treated\' value.", span(strong("The application currently only supports 2 conditions max.")), "If there is only a single condition, the C2 and C2. Control columns may be ommitted from the metadata file. A metadata sample is available for download below:"),
+               p("The first column contains the filename without the extension. The C1 and C2 columns contain the conditions in the experiment.The C1-Control and C2-Control columns contain a boolean value specifying which of the contion values was the control in the experiment. Only a single TRUE and FALSE value is needed for each of these columns. In this example, \'untreated\' is the control, so there is a TRUE in the cell adjacent to it, and a FALSE adjacent to the \'treated\' value.", span(strong("The application currently only supports 2 conditions max.")), "If there is only a single condition, the C2 and C2. Control columns may be ommitted from the metadata file. A metadata sample is available for download below:"),
                downloadButton("downloadData", "Download Metadata Example"),
                
                h3("Selecting Markers for Gating"),
@@ -219,7 +223,7 @@ server <- function(input, output, session) {
   
   
   ## This is all for the metadata example and download
-  data_example <- read.csv("metadata-template.csv", stringsAsFactors = FALSE)
+  data_example <- read.csv("metadata-template.csv", stringsAsFactors = FALSE, check.names=FALSE)
   
   output$mtable <- renderTable(data_example)
   
