@@ -34,4 +34,10 @@ Input Flow Cytometry data needs to be formatted to the [gateR](https://cran.r-pr
 
 *x*, *y*, and *z* in this example represent the numeric cell specific data from the experiment. The shiny application additionally appends a column for the file each cell came from. This is for tracking and is not used in the analysis. The condition data is extracted from the separate metadata.csv file that is required.
 
-The `fcsprocessor.R` file is designed to take raw .fcs data and transform it to meet the requirements of the package. 
+The `fcsprocessor.R` file is designed to take raw .fcs data and transform it to meet the requirements of the package.
+
+The `fcsprocessor.R` script is designed to take raw .fcs data and transform it to meet the requirements of the package. The application uses the same script. 
+
+The application uses the [flowCore](https://bioconductor.org/packages/release/bioc/vignettes/flowCore/inst/doc/HowTo-flowCore.pdf) package to read in the .fcs data and store it in a `flowFrame` object.  
+
+ 
