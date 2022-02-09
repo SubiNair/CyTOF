@@ -33,31 +33,31 @@ library(shinyFiles)
 
 ### TIMEOUT
 
-options(shiny.maxRequestSize=500*1024^2)
-timeoutSeconds <- 60*15 # 15'
-inactivity <- sprintf("function idleTimer() {
-  var t = setTimeout(logout, %s);
-  window.onmousemove = resetTimer; // catches mouse movements
-  window.onmousedown = resetTimer; // catches mouse movements
-  window.onclick = resetTimer;     // catches mouse clicks
-  window.onscroll = resetTimer;    // catches scrolling
-  window.onkeypress = resetTimer;  //catches keyboard actions
-  function logout() {
-  Shiny.setInputValue('timeOut', '%ss')
-  }
-  function resetTimer() {
-  clearTimeout(t);
-  t = setTimeout(logout, %s);  // time is in milliseconds (1000 is 1 second)
-  }
-  }
-  idleTimer();", timeoutSeconds*1000, timeoutSeconds, timeoutSeconds*1000)
+ options(shiny.maxRequestSize=500*1024^2)
+# timeoutSeconds <- 60*15 # 15'
+# inactivity <- sprintf("function idleTimer() {
+#   var t = setTimeout(logout, %s);
+#   window.onmousemove = resetTimer; // catches mouse movements
+#   window.onmousedown = resetTimer; // catches mouse movements
+#   window.onclick = resetTimer;     // catches mouse clicks
+#   window.onscroll = resetTimer;    // catches scrolling
+#   window.onkeypress = resetTimer;  //catches keyboard actions
+#   function logout() {
+#   Shiny.setInputValue('timeOut', '%ss')
+#   }
+#   function resetTimer() {
+#   clearTimeout(t);
+#   t = setTimeout(logout, %s);  // time is in milliseconds (1000 is 1 second)
+#   }
+#   }
+#   idleTimer();", timeoutSeconds*1000, timeoutSeconds, timeoutSeconds*1000)
 
 
 
 ### GLOBAL VARS
 
 #Establishing a blacklist for flowcell data we will not need
-blacklist <- c("Time", "Cell_length", "beadDist")
+blacklist <- c("Time", "Cell_length", "beadDist", 'Event_length', 'Center', 'Residual', 'Width', 'Offset')
 manual_colnames <- c("ID", "C1", "C2","Dataset")
 
 # A queue of notification IDs
@@ -89,7 +89,7 @@ move_to_start <- function(x, to_move) {
 ui <- fluidPage(
   #tags$script(inactivity),  
   tabsetPanel(  
-    tabPanel("Analysis", fluid = TRUE,
+    tabPanel("Processor", fluid = TRUE,
              titlePanel("CyTOF Processor"),
              # Copy the line below to make a text input box
              sidebarPanel(
@@ -125,7 +125,12 @@ ui <- fluidPage(
                selectizeInput('plotted_markers',
                               choices = NULL,
                               multiple = T,
-                              label = HTML('<p style=“color:black;“>Markers for Gating:</p>')),
+                              label = HTML('<p style=“color:black;“>Markers for Gating
+                                           </p>')),
+               
+               # textInput('bl',
+               #                placeholder = "Enter non-analysis columns"
+               #                ),
                hr(),
                actionButton("script", "Send")
              ),
@@ -167,26 +172,26 @@ ui <- fluidPage(
                #                                  "0.01" = 0.01,
                #                                  "0.05" = 0.05))),
                
-               uiOutput("markers_to_plot_ui"),
-               # selectizeInput('markers_to_plot',
-               #                choices = NULL,
-               #                multiple = F,
-               #                label = HTML('<p style=“color:black;“>Marker for Plotting:</p>')),
+               #uiOutput("markers_to_plot_ui"),
+               selectizeInput('markers_to_plot',
+                              choices = NULL,
+                              multiple = F,
+                              label = HTML('<p style=“color:black;“>Marker for Plotting:</p>')),
                plotOutput("plot1"),
                downloadButton("downloadPlot", "Download Plot")
                
              )      
              
-    ), ### End tab two
+    ) ### End tab two
     
-    tabPanel("FAQ", fluid=TRUE,
-             #https://github.com/Waller-SUSAN/gateR
-             mainPanel(
-               h3("FAQ")
-              
-             )
+    # tabPanel("FAQ", fluid=TRUE,
+    #          #https://github.com/Waller-SUSAN/gateR
+    #          mainPanel(
+    #            h3("FAQ")
+    #           
+    #          )
       
-    )
+    #)
     
     
   ) # End Tabset Panel
@@ -284,8 +289,10 @@ server <- function(input, output, session) {
       #Insert catch error for mismatched files here
       sampleNames(fs) <- input$fcs$name
       return(fs)
+      
     }
   })
+  
   
   channel_obj <- reactive({
     channels <- colnames(set())
@@ -434,10 +441,11 @@ server <- function(input, output, session) {
   ###### SECOND TAB
   
   gated_obj <- reactive({
-    req(input$rds$datapath)
+    req(input$rds)
     rds_file <- readRDS(input$rds$datapath)
     full_obj <- rds_file
     
+
     return(full_obj)
   }) 
   
@@ -453,9 +461,9 @@ server <- function(input, output, session) {
   
   channel_RDS <- reactive({
     req(gated_obj())
-    channel_names <- gated_obj()$markertable
+    channel_names <- gated_obj()$markerTable
     
-    print(channel_names)
+    print(channel_names[1,])
     return(channel_names)
   })
   
@@ -469,30 +477,43 @@ server <- function(input, output, session) {
     print(channel_to_plot)
     #print(to_plot)
     
+    cdn <- conditions()
+    
+    
     if(length(conditions()) < 2) {
-      ggplot(observations, aes(x=(observations[,channel_to_plot]), color=gated_obj()$obs[,conditions()])) + geom_density() + theme_classic() + xlab(input$markers_to_plot) + ylab("Density") + scale_colour_discrete("Conditions") + ggtitle(paste("Density of", input$markers_to_plot)) + theme(plot.title = element_text(hjust = 0.5))
+      ggplot(observations, aes(x=(observations[,channel_to_plot]), color=gated_obj()$obs[,cdn])) + geom_density() + theme_classic() + xlab(input$markers_to_plot) + ylab("Density") + scale_colour_discrete("Conditions") + ggtitle(paste("Density of", input$markers_to_plot)) + theme(plot.title = element_text(hjust = 0.5))
     }
     
+    else{
+      
+      cdn_1_obs <- subset(observations, select= -C2) #omit condition 2 from cdn1
+      cdn_2_obs <- subset(observations, select = -C1)
+      
+      print(head(cdn_1_obs))
+      print(head(cdn_2_obs))
+      
+      #ggplot(observations, aes(x=(observations[,channel_to_plot]), color=gated_obj()$obs[,cdn])) + 
+      g <- ggplot()
+      g <- g + geom_density(data = observations, aes(observations[,channel_to_plot], colour= gated_obj()$obs[,'C1']))          
+      g <- g + geom_density(data = observations, aes(observations[,channel_to_plot], colour= gated_obj()$obs[,'C2'])) + theme_classic() + xlab(input$markers_to_plot) + ylab("Density") + scale_colour_discrete("Conditions") +   ggtitle(paste("Density of", input$markers_to_plot)) + theme(plot.title = element_text(hjust = 0.5))}
     
-    ggplot(observations, aes(x=(observations[,channel_to_plot]), color=gated_obj()$obs[,conditions()])) + geom_density() + theme_classic() + xlab(input$markers_to_plot) + ylab("Density") + scale_colour_discrete("Conditions") + ggtitle(paste("Density of", input$markers_to_plot)) + theme(plot.title = element_text(hjust = 0.5))
+    g
     
   })  
   
-  
-  output$plot1 <- renderPlot({
-    
-    plotter()
-    
-  })
-#}
+
 
   
-  # 
-  # observeEvent(input$markers_to_plot, {
-  # 
-  #   plotter()
-  # })
-  
+
+  observeEvent(input$markers_to_plot, {
+
+    output$plot1 <- renderPlot({
+
+        plotter()
+
+      })
+   })
+
   output$downloadPlot <- downloadHandler(
     filename = function() {
       paste("CytofPlot-", Sys.Date(), ".pdf", sep="")
@@ -503,19 +524,18 @@ server <- function(input, output, session) {
   )
   
   
-  # observeEvent(input$rds, {
-  #   #print(as.character(marker_object()[1,]))
-  #   
-  #   updateSelectizeInput(session, 'markers_to_plot',
-  #                        choices = as.character(channel_RDS()[1,]),
-  #                        server = TRUE,
-  #                        selected = NULL)
-  # }, once = FALSE)
-  # 
+  observeEvent(input$rds, {
+
+    updateSelectizeInput(session, 'markers_to_plot',
+                         choices = as.character(channel_RDS()[1,]),
+                         server = TRUE,
+                         selected = NULL)
+  }, once = FALSE)
+
   
-  output$markers_to_plot_ui <- renderUI({
-    selectInput('markers_to_plot', NULL, choices = as.character(channel_RDS()[1,]),
-                 selected = as.vector(channel_RDS()[1,])[1], multiple = F ) })
+  # output$markers_to_plot_ui <- renderUI({
+  #   selectInput('markers_to_plot', NULL, choices = as.character(channel_RDS()[1,]),
+  #                selected = as.vector(channel_RDS()[1,])[1], multiple = F ) })
   
   
   # output$image<-renderUI({
